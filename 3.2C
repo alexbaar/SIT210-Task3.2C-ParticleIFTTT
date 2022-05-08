@@ -1,0 +1,93 @@
+// PINS
+
+int onboardLED = D7;
+int photoRes = A5;
+int photoResPower = A0;
+int externalRedLED = D2;
+
+int blinkLedTime = 1000; // every second
+int lastBlinkTime;
+
+int photoResCheckTime = 2000; // 2 sec
+
+int lastPhotoResReport;
+char lightValue[4];
+
+
+
+void setup() {
+	// First, declare all of our pins. This lets our device know which ones 
+    // will be used for outputting voltage, and which ones will read 
+    // incoming voltage.
+	pinMode(onboardLED, OUTPUT); // Our LED pin is output (lighting up the LED)
+    pinMode(photoRes, INPUT); 
+    pinMode(photoResPower, OUTPUT);
+    pinMode(externalRedLED, OUTPUT); 
+	
+    digitalWrite(onboardLED, LOW);
+    digitalWrite(externalRedLED,LOW);
+    
+    digitalWrite(photoResPower, HIGH);
+    
+    Particle.function("led", ledToggle);
+    
+    lastBlinkTime = millis();         // returns number of millisecond passed since the Argon board began running the current program 
+    lastPhotoResReport = millis();
+}
+
+void loop() 
+{
+	if ((millis() - lastBlinkTime >= blinkLedTime))
+	{
+	    lastBlinkTime = millis();
+	    digitalWrite(onboardLED, !digitalRead(onboardLED));  // basically says " send the output to D7 that is the opposite of the current state)
+	}
+	
+	if ((millis() - lastPhotoResReport) >= photoResCheckTime)
+	{
+	    lastPhotoResReport = millis();
+	    int lightLevel = analogRead(photoRes);
+	    
+	    if ( lightLevel < 500) 
+	    {
+	        digitalWrite(externalRedLED, HIGH);
+	        Particle.publish("lightLevel", "dark", 60, PRIVATE);
+	        Particle.publish("dark");
+	    }
+	    if (lightLevel >= 500 && lightLevel < 900) 
+	    {
+	        digitalWrite(externalRedLED, LOW);
+	        Particle.publish("lightLevel", "medium", 60, PRIVATE);
+	        Particle.publish("medlight");
+	    }
+	    if (lightLevel >= 900) 
+	    {
+	        Particle.publish("lightLevel", "bright", 60, PRIVATE);
+	        digitalWrite(externalRedLED, LOW);
+	        Particle.publish("light");
+	    }
+	    
+	    sprintf(lightValue, "%d", lightLevel);
+	    Particle.publish("sensorValue", lightValue, PRIVATE);  // we will take this value to thingspeak
+	}
+	
+	//ledToggle("off");
+}
+
+
+// This function is called when the Particle.function is called   ; controlled over the web
+int ledToggle(String command) 
+{
+	if (command.equals("on")) {
+        digitalWrite(externalRedLED, HIGH);
+        return 1;
+    }
+    else if (command.equals("off")) {
+        digitalWrite(externalRedLED, LOW);
+        return 0;
+    }
+    else {
+		// Unknown option
+        return -1;
+    }
+}
